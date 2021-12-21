@@ -16,6 +16,8 @@ def send_request(url, payload=None):
     """Send request to metaweather api. Return value depends on endpoint's return value"""
     request_url = urljoin(METAWEATHER_URL, url)
     response = requests.get(request_url, params=payload)
+    if response.status_code != 200:
+        raise ConnectionError("Could not connect")
     return response.json()
 
 
@@ -44,10 +46,10 @@ def get_city_forecast_for_date(woeid, date):
 
 
 def get_tomorrow_forecast(woeid, day):
-    """Send request to retrieve weather for given city. Filter forecast by date. Return str or Dict"""
+    """Send request to retrieve weather for given city. Filter forecast by date. Return Dict"""
     weather = get_city_forecast(woeid)
     if not weather:
-        return NO_CITY_FORECAST_MSG
+        raise ValueError(NO_CITY_FORECAST_MSG)
 
     tomorrow_forecast = tuple(filter(lambda x: x["applicable_date"] == day.strftime("%Y-%m-%d"), weather))[0]
     return tomorrow_forecast
@@ -55,11 +57,11 @@ def get_tomorrow_forecast(woeid, day):
 
 def get_tomorrow_forecast_based_on_predictability(woeid, day):
     """Send request to retrieve weather on the given date.
-    Select forecast with highest predictability. Return str or Dict"""
+    Select forecast with highest predictability. Return Dict"""
     tomorrow_string = day.strftime("%Y/%m/%d")
     weather = get_city_forecast_for_date(woeid, tomorrow_string)
     if len(weather) == 0:
-        return NO_CITY_FORECAST_MSG
+        raise ValueError(NO_CITY_FORECAST_MSG)
 
     # take forecast that has the biggest predictability value
     tomorrow_forecast = sorted(weather, key=lambda x: x["predictability"], reverse=True)[0]
@@ -84,9 +86,6 @@ def get_forecast_for_tomorrow(city):
 
     # tomorrow_forecast = get_tomorrow_forecast(woeid, tomorrow)
     tomorrow_forecast = get_tomorrow_forecast_based_on_predictability(woeid, tomorrow)
-    if type(tomorrow_forecast) == str:
-        return tomorrow_forecast
-
     is_raining = check_for_rain(tomorrow_forecast)
     forecast = GONNA_RAIN_MSG if is_raining else NOT_GONNA_RAIN_MSG
     return forecast
